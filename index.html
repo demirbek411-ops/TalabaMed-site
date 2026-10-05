@@ -691,6 +691,7 @@
   .quiz-heart:hover{ transform:scale(1.1); }
   .quiz-heart.saved{ color:#e07a63; }
 </style>
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
 </head>
 <body>
 
@@ -6904,5 +6905,88 @@
 })();
 </script>
 
+<style>
+#gate{ position:fixed; inset:0; z-index:2000; display:flex; align-items:center; justify-content:center;
+  background:#050a1a; padding:24px; text-align:center; color:#eef3ff; font-family:'Space Grotesk',system-ui,sans-serif; }
+#gate .g-box{ width:100%; max-width:360px; }
+#gate h2{ margin:0 0 10px; font-size:1.25rem; }
+#gate p{ margin:0 0 18px; color:#9fb0d4; font-size:0.95rem; line-height:1.5; }
+#gate a, #gate button{ display:block; width:100%; box-sizing:border-box; margin:0 0 10px; padding:13px 16px; border-radius:12px;
+  border:1px solid rgba(79,141,255,0.45); background:rgba(79,141,255,0.14); color:#fff; font:inherit; font-weight:700;
+  text-decoration:none; cursor:pointer; }
+#gate button.main{ background:linear-gradient(120deg,#4f8dff,#2a5bd7); border-color:transparent; }
+#gate .spin{ width:34px; height:34px; border-radius:50%; border:3px solid rgba(79,141,255,0.25); border-top-color:#4f8dff;
+  margin:0 auto 16px; animation:gs 0.9s linear infinite; }
+@keyframes gs{ to{ transform:rotate(360deg); } }
+</style>
+<div id="gate"><div class="g-box"><div class="spin"></div><p id="gMsg">...</p></div></div>
+<script>
+(function(){
+  var API = 'https://talabmed-bot.onrender.com/api/check';
+  var BOT = 'https://t.me/Talaba_Med_bot';
+  var lang = 'uz';
+  try { lang = localStorage.getItem('talaba_med_lang') === 'ru' ? 'ru' : 'uz'; } catch (e) {}
+  var T = {
+    uz: { load: 'Obuna tekshirilmoqda...', tg: 'Ilovani Telegram bot orqali oching', tgTxt: 'Bu ilova faqat Telegram ichida, bot orqali ochiladi.',
+          open: 'Botga o‘tish', subs: 'Kanallarga obuna bo‘ling', subsTxt: 'Ilovadan foydalanish uchun quyidagilarga obuna bo‘lishingiz kerak:',
+          again: '✅ Qayta tekshirish', err: 'Ulanishda xatolik', errTxt: 'Server javob bermadi. Iltimos, qayta urinib ko‘ring.', retry: 'Qayta urinish' },
+    ru: { load: 'Проверяем подписку...', tg: 'Откройте приложение через бота в Telegram',
+          tgTxt: 'Это приложение открывается только внутри Telegram через бота.',
+          open: 'Перейти к боту', subs: 'Подпишитесь на каналы',
+          subsTxt: 'Чтобы пользоваться приложением, нужно подписаться на:',
+          again: '✅ Проверить снова', err: 'Ошибка соединения',
+          errTxt: 'Сервер не ответил. Попробуйте ещё раз.', retry: 'Повторить' }
+  }[lang];
+  var gate = document.getElementById('gate');
+  var box = gate.firstChild;
+  var tg = window.Telegram && window.Telegram.WebApp;
+  var busy = false, unlocked = false;
+
+  function esc(x){ return String(x).replace(/[&<>"]/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]; }); }
+  function show(html){ box.innerHTML = html; gate.style.display = 'flex'; unlocked = false; }
+  function loading(){ show('<div class="spin"></div><p>' + T.load + '</p>'); }
+  function unlock(){ gate.style.display = 'none'; unlocked = true; }
+
+  function showNoTg(){
+    show('<h2>' + T.tg + '</h2><p>' + T.tgTxt + '</p><a class="main" href="' + BOT + '">' + T.open + '</a>');
+  }
+  function showError(){
+    show('<h2>' + T.err + '</h2><p>' + T.errTxt + '</p><button class="main" id="gRetry" type="button">' + T.retry + '</button>');
+    document.getElementById('gRetry').onclick = function(){ run(true); };
+  }
+  function showMissing(list){
+    var h = '<h2>' + T.subs + '</h2><p>' + T.subsTxt + '</p>';
+    list.forEach(function(c){ h += '<a href="' + esc(c.url) + '" target="_blank" rel="noopener">' + esc(c.name) + '</a>'; });
+    h += '<button class="main" id="gAgain" type="button">' + T.again + '</button>';
+    show(h);
+    document.getElementById('gAgain').onclick = function(){ run(true); };
+  }
+
+  function run(visible){
+    if (busy) return;
+    if (!tg || !tg.initData){ showNoTg(); return; }
+    busy = true;
+    if (visible || !unlocked) loading();
+    var ctrl = window.AbortController ? new AbortController() : null;
+    var timer = setTimeout(function(){ if (ctrl) ctrl.abort(); }, 70000);
+    fetch(API, { method: 'POST', headers: { 'Content-Type': 'application/json' },
+                 body: JSON.stringify({ initData: tg.initData }), signal: ctrl ? ctrl.signal : undefined })
+      .then(function(r){ return r.json().then(function(j){ return { st: r.status, j: j }; }); })
+      .then(function(res){
+        clearTimeout(timer); busy = false;
+        if (res.j && res.j.ok) unlock();
+        else if (res.j && res.j.missing && res.j.missing.length) showMissing(res.j.missing);
+        else showNoTg();
+      })
+      .catch(function(){ clearTimeout(timer); busy = false; if (!unlocked) showError(); });
+  }
+
+  if (tg){ try { tg.ready(); tg.expand(); } catch (e) {} }
+  loading();
+  run(false);
+  setInterval(function(){ if (unlocked) run(false); }, 300000);
+  document.addEventListener('visibilitychange', function(){ if (!document.hidden && unlocked) run(false); });
+})();
+</script>
 </body>
 </html>
