@@ -115,7 +115,7 @@
     background:var(--surface-solid); border:1px solid var(--danger); color:var(--cream);
     padding:14px 20px; border-radius:12px; font-size:0.88rem; opacity:0; pointer-events:none;
     transition:opacity .25s ease, transform .25s ease; z-index:20;
-    box-shadow:0 12px 30px -10px rgba(0,0,0,0.6); max-width:90vw;
+    box-shadow:0 12px 30px -10px rgba(0,0,0,0.6); max-width:90vw; white-space:pre-line; text-align:center;
   }
   .toast.show{ opacity:1; transform:translate(-50%, 0); pointer-events:auto; }
 
@@ -1311,7 +1311,7 @@
       fetch(STREAK_API, { method: 'POST', headers: { 'Content-Type': 'application/json' },
                           body: JSON.stringify({ initData: tgw.initData, n: n }), keepalive: true })
         .then(function(r){ return r.json(); })
-        .then(function(j){ if (j && j.ok && j.just_completed) showToast('\ud83d\udd25 ' + j.streak + ' kunlik seriya!'); })
+        .then(function(j){ if (j && j.ok && j.just_completed) showToast(j.message || ('\ud83d\udd25 ' + j.streak + ' kunlik seriya!')); })
         .catch(function(){ streakPending += n; });
     } catch (e) { streakPending += n; }
   }
@@ -1327,7 +1327,7 @@
     toastEl.textContent = msg;
     toastEl.classList.add('show');
     clearTimeout(toastTimer);
-    toastTimer = setTimeout(function(){ toastEl.classList.remove('show'); }, 3200);
+    toastTimer = setTimeout(function(){ toastEl.classList.remove('show'); }, Math.max(3200, String(msg).length * 70));
   }
 
   document.querySelectorAll('.finals-locked-btn').forEach(function(btn){
