@@ -1299,25 +1299,25 @@
   var toastTimer = null;
   // ---- Kunlik seriya: javoblar sonini botga yuborish ----
   var STREAK_API = 'https://talabmed-bot.onrender.com/api/answer';
-  var streakPending = 0, streakTimer = null;
+  var streakPending = 0, streakPendingC = 0, streakTimer = null;
   function streakFlush(){
     if (streakTimer){ clearTimeout(streakTimer); streakTimer = null; }
-    var n = streakPending;
+    var n = streakPending, nc = streakPendingC;
     if (!n) return;
     var tgw = window.Telegram && window.Telegram.WebApp;
     if (!tgw || !tgw.initData) return;
-    streakPending = 0;
+    streakPending = 0; streakPendingC = 0;
     try {
       fetch(STREAK_API, { method: 'POST', headers: { 'Content-Type': 'application/json' },
-                          body: JSON.stringify({ initData: tgw.initData, n: n }), keepalive: true })
+                          body: JSON.stringify({ initData: tgw.initData, n: n, c: nc }), keepalive: true })
         .then(function(r){ return r.json(); })
         .then(function(j){ if (j && j.ok && j.just_completed) showToast(j.message || ('\ud83d\udd25 ' + j.streak + ' kunlik seriya!')); })
-        .catch(function(){ streakPending += n; });
-    } catch (e) { streakPending += n; }
+        .catch(function(){ streakPending += n; streakPendingC += nc; });
+    } catch (e) { streakPending += n; streakPendingC += nc; }
   }
-  function streakCount(n){
+  function streakCount(n, c){
     if (!n) return;
-    streakPending += n;
+    streakPending += n; streakPendingC += (c || 0);
     if (!streakTimer) streakTimer = setTimeout(streakFlush, 3000);
   }
   document.addEventListener('visibilitychange', function(){ if (document.hidden) streakFlush(); });
@@ -6607,7 +6607,7 @@
 
     var statusEl = document.getElementById('quizStatus');
     var isCorrect = (chosenIndex === correctIdx);
-    if (chosenIndex !== null) streakCount(1);
+    if (chosenIndex !== null) streakCount(1, isCorrect ? 1 : 0);
 
     if (chosenIndex !== null) buttons[chosenIndex].classList.add(isCorrect ? 'correct' : 'wrong');
     if (!isCorrect) buttons[correctIdx].classList.add('correct');
@@ -6637,8 +6637,8 @@
   function finishQuiz(){
     stopTimer();
     if (quizState.isExam){
-      if (quizState.answers) streakCount(quizState.answers.filter(function(a){ return a !== null; }).length);
       gradeExam(); hideExamUI();
+      if (quizState.answers) streakCount(quizState.answers.filter(function(a){ return a !== null; }).length, quizState.correctCount);
     }
     quizScreenEl.style.display = 'none';
     var total = quizState.questions.length;
