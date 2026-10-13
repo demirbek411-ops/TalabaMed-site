@@ -1297,6 +1297,32 @@
 (function(){
   var toastEl = document.getElementById('toast');
   var toastTimer = null;
+  // ---- Kunlik seriya: javoblar sonini botga yuborish ----
+  var STREAK_API = 'https://talabmed-bot.onrender.com/api/answer';
+  var streakPending = 0, streakTimer = null;
+  function streakFlush(){
+    if (streakTimer){ clearTimeout(streakTimer); streakTimer = null; }
+    var n = streakPending;
+    if (!n) return;
+    var tgw = window.Telegram && window.Telegram.WebApp;
+    if (!tgw || !tgw.initData) return;
+    streakPending = 0;
+    try {
+      fetch(STREAK_API, { method: 'POST', headers: { 'Content-Type': 'application/json' },
+                          body: JSON.stringify({ initData: tgw.initData, n: n }), keepalive: true })
+        .then(function(r){ return r.json(); })
+        .then(function(j){ if (j && j.ok && j.just_completed) showToast('\ud83d\udd25 ' + j.streak + ' kunlik seriya!'); })
+        .catch(function(){ streakPending += n; });
+    } catch (e) { streakPending += n; }
+  }
+  function streakCount(n){
+    if (!n) return;
+    streakPending += n;
+    if (!streakTimer) streakTimer = setTimeout(streakFlush, 3000);
+  }
+  document.addEventListener('visibilitychange', function(){ if (document.hidden) streakFlush(); });
+  window.addEventListener('pagehide', streakFlush);
+
   function showToast(msg){
     toastEl.textContent = msg;
     toastEl.classList.add('show');
@@ -6581,6 +6607,7 @@
 
     var statusEl = document.getElementById('quizStatus');
     var isCorrect = (chosenIndex === correctIdx);
+    if (chosenIndex !== null) streakCount(1);
 
     if (chosenIndex !== null) buttons[chosenIndex].classList.add(isCorrect ? 'correct' : 'wrong');
     if (!isCorrect) buttons[correctIdx].classList.add('correct');
@@ -6609,7 +6636,10 @@
 
   function finishQuiz(){
     stopTimer();
-    if (quizState.isExam){ gradeExam(); hideExamUI(); }
+    if (quizState.isExam){
+      if (quizState.answers) streakCount(quizState.answers.filter(function(a){ return a !== null; }).length);
+      gradeExam(); hideExamUI();
+    }
     quizScreenEl.style.display = 'none';
     var total = quizState.questions.length;
     var correct = quizState.correctCount;
