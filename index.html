@@ -1297,27 +1297,30 @@
 (function(){
   var toastEl = document.getElementById('toast');
   var toastTimer = null;
-  // ---- Kunlik seriya: javoblar sonini botga yuborish ----
+  // ---- Kunlik seriya va reyting: javoblarni botga yuborish (to'g'riligini server tekshiradi) ----
   var STREAK_API = 'https://talabmed-bot.onrender.com/api/answer';
-  var streakPending = 0, streakPendingC = 0, streakTimer = null;
+  var streakQueue = [], streakTimer = null;
   function streakFlush(){
     if (streakTimer){ clearTimeout(streakTimer); streakTimer = null; }
-    var n = streakPending, nc = streakPendingC;
-    if (!n) return;
+    if (!streakQueue.length) return;
     var tgw = window.Telegram && window.Telegram.WebApp;
     if (!tgw || !tgw.initData) return;
-    streakPending = 0; streakPendingC = 0;
+    var batch = streakQueue.splice(0, 40);
     try {
       fetch(STREAK_API, { method: 'POST', headers: { 'Content-Type': 'application/json' },
-                          body: JSON.stringify({ initData: tgw.initData, n: n, c: nc }), keepalive: true })
+                          body: JSON.stringify({ initData: tgw.initData, items: batch }), keepalive: true })
         .then(function(r){ return r.json(); })
-        .then(function(j){ if (j && j.ok && j.just_completed) showToast(j.message || ('\ud83d\udd25 ' + j.streak + ' kunlik seriya!')); })
-        .catch(function(){ streakPending += n; streakPendingC += nc; });
-    } catch (e) { streakPending += n; streakPendingC += nc; }
+        .then(function(j){
+          if (j && !j.ok && j.error === 'db') streakQueue = batch.concat(streakQueue);
+          if (j && j.ok && j.just_completed) showToast(j.message || ('\ud83d\udd25 ' + j.streak + ' kunlik seriya!'));
+          if (streakQueue.length) streakFlush();
+        })
+        .catch(function(){ streakQueue = batch.concat(streakQueue); });
+    } catch (e) { streakQueue = batch.concat(streakQueue); }
   }
-  function streakCount(n, c){
-    if (!n) return;
-    streakPending += n; streakPendingC += (c || 0);
+  function streakCount(qText, aText){
+    if (!qText || !aText) return;
+    streakQueue.push({ q: qText, a: aText });
     if (!streakTimer) streakTimer = setTimeout(streakFlush, 3000);
   }
   document.addEventListener('visibilitychange', function(){ if (document.hidden) streakFlush(); });
@@ -6607,7 +6610,7 @@
 
     var statusEl = document.getElementById('quizStatus');
     var isCorrect = (chosenIndex === correctIdx);
-    if (chosenIndex !== null) streakCount(1, isCorrect ? 1 : 0);
+    if (chosenIndex !== null && q.options[chosenIndex]) streakCount(q.q, q.options[chosenIndex].text);
 
     if (chosenIndex !== null) buttons[chosenIndex].classList.add(isCorrect ? 'correct' : 'wrong');
     if (!isCorrect) buttons[correctIdx].classList.add('correct');
@@ -6638,7 +6641,10 @@
     stopTimer();
     if (quizState.isExam){
       gradeExam(); hideExamUI();
-      if (quizState.answers) streakCount(quizState.answers.filter(function(a){ return a !== null; }).length, quizState.correctCount);
+      if (quizState.answers) quizState.questions.forEach(function(qq, k){
+        var a = quizState.answers[k];
+        if (a !== null && a !== undefined && qq.options[a]) streakCount(qq.q, qq.options[a].text);
+      });
     }
     quizScreenEl.style.display = 'none';
     var total = quizState.questions.length;
