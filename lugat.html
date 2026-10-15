@@ -208,7 +208,9 @@ $list.addEventListener('click', e => {
   const x = e.target.closest('.ex'); if (x){ $q.value = x.dataset.e; renderList(); $q.focus(); }
 });
 renderChips(); renderList();
-setTimeout(() => $q.focus(), 300);
+const want = new URLSearchParams(location.search).get('l');
+const wi = want ? LEX.findIndex(x => x.l === want) : -1;
+if (wi >= 0) openCard(wi); else setTimeout(() => $q.focus(), 300);
 </script>
 </body>
 </html>
