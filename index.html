@@ -6317,7 +6317,7 @@
     }
     var pool = buildFlatPool(topicId);
     if (source.type === 'all') return pool;
-    if (source.type === 'random') return shuffle(pool).slice(0, 20);
+    if (source.type === 'random') return shuffle(pool).slice(0, source.n || 20);
     if (source.type === 'saved'){
       var saved = readList(bookmarksKey(topicId));
       return pool.filter(function(q){ return saved.indexOf(q.key) >= 0; });
@@ -6697,6 +6697,19 @@
     pendingExam = !!(quizState && quizState.isExam);
     startQuiz(currentTopic, currentQuizSource, selectedMode);
   });
+
+  // ---- Zaif mavzudan mashq: ?weak=<mavzu raqami> (botdagi "Mening natijam" dan) ----
+  (function(){
+    try {
+      var wk = new URLSearchParams(location.search).get('weak');
+      if (!wk || !QUESTION_BANK[wk]) return;
+      currentTopic = wk;
+      currentQuizSource = { type: 'random', n: 30 };
+      selectedMode = { mode: 'unlimited', secs: 0 };
+      pendingExam = false;
+      startQuiz(currentTopic, currentQuizSource, selectedMode);
+    } catch (e) {}
+  })();
 
   loadSaved();
 })();
