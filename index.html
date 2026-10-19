@@ -6978,12 +6978,12 @@
   var T = {
     uz: { load: 'Obuna tekshirilmoqda...', tg: 'Ilovani Telegram bot orqali oching', tgTxt: 'Bu ilova faqat Telegram ichida, bot orqali ochiladi.',
           open: 'Botga o‘tish', subs: 'Kanallarga obuna bo‘ling', subsTxt: 'Ilovadan foydalanish uchun quyidagilarga obuna bo‘lishingiz kerak:',
-          again: '✅ Qayta tekshirish', err: 'Ulanishda xatolik', errTxt: 'Server javob bermadi. Iltimos, qayta urinib ko‘ring.', retry: 'Qayta urinish' },
+          again: '✅ Qayta tekshirish', blk: 'Kirish vaqtincha cheklangan', blkTxt: 'Kanallardan ko‘p marta chiqib ketganingiz uchun ilovadan foydalanish bloklangan. Blok tugaydi: ', err: 'Ulanishda xatolik', errTxt: 'Server javob bermadi. Iltimos, qayta urinib ko‘ring.', retry: 'Qayta urinish' },
     ru: { load: 'Проверяем подписку...', tg: 'Откройте приложение через бота в Telegram',
           tgTxt: 'Это приложение открывается только внутри Telegram через бота.',
           open: 'Перейти к боту', subs: 'Подпишитесь на каналы',
           subsTxt: 'Чтобы пользоваться приложением, нужно подписаться на:',
-          again: '✅ Проверить снова', err: 'Ошибка соединения',
+          again: '✅ Проверить снова', blk: 'Доступ временно ограничен', blkTxt: 'Из-за частых выходов из каналов доступ к приложению заблокирован. Блокировка заканчивается: ', err: 'Ошибка соединения',
           errTxt: 'Сервер не ответил. Попробуйте ещё раз.', retry: 'Повторить' }
   }[lang];
   var gate = document.getElementById('gate');
@@ -7002,6 +7002,11 @@
   function showError(){
     show('<h2>' + T.err + '</h2><p>' + T.errTxt + '</p><button class="main" id="gRetry" type="button">' + T.retry + '</button>');
     document.getElementById('gRetry').onclick = function(){ run(true); };
+  }
+  function showBlocked(until){
+    var d = '';
+    try { d = new Date(until).toLocaleString('uz-UZ', { timeZone: 'Asia/Tashkent', day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit' }); } catch (e) {}
+    show('<h2>' + T.blk + '</h2><p>' + T.blkTxt + esc(d) + '</p>');
   }
   function showMissing(list){
     var h = '<h2>' + T.subs + '</h2><p>' + T.subsTxt + '</p>';
@@ -7024,6 +7029,7 @@
       .then(function(res){
         clearTimeout(timer); busy = false;
         if (res.j && res.j.ok) unlock();
+        else if (res.j && res.j.blocked) showBlocked(res.j.until);
         else if (res.j && res.j.missing && res.j.missing.length) showMissing(res.j.missing);
         else showNoTg();
       })
