@@ -539,6 +539,7 @@
   .quiz-status{ margin:16px 0 0; font-size:0.86rem; font-weight:600; min-height:20px; }
   .quiz-status.ok{ color:#7bc99a; }
   .quiz-status.bad{ color:#e08a7d; }
+  .btn-next{ display:block; width:100%; margin-top:12px; padding:12px; border-radius:12px; border:1px solid rgba(127,127,127,.4); background:rgba(127,127,127,.14); color:inherit; font:inherit; font-weight:600; cursor:pointer; }
 
   /* ---------- read-all (study) screen ---------- */
   #readAllScreen{ display:none; width:100%; max-width:640px; }
@@ -6382,6 +6383,7 @@
   }
 
   function stopTimer(){
+    cancelAdvance();
     if (quizState && quizState.timerId){
       clearInterval(quizState.timerId);
       quizState.timerId = null;
@@ -6640,22 +6642,41 @@
       quizState.correctCount++;
       addSeen(currentTopic, q.key);
       removeWrong(currentTopic, q.key);
-      statusEl.textContent = 'To\u2018g\u2018ri! Keyingisiga o\u2018tilmoqda...';
       statusEl.className = 'quiz-status ok';
     } else {
       addWrong(currentTopic, q.key);
-      statusEl.textContent = 'Xato. Keyingiga o\u2018tilmoqda...';
       statusEl.className = 'quiz-status bad';
     }
 
-    setTimeout(function(){
+    // Xatoni tushunib olish uchun: xato javobdan keyin 10 soniya, to'g'ridan keyin 2 soniya kutiladi
+    scheduleNext(statusEl, isCorrect ? 2 : 10, isCorrect);
+  }
+
+  var advanceTimer = null, advanceTick = null;
+  function cancelAdvance(){
+    if (advanceTimer){ clearTimeout(advanceTimer); advanceTimer = null; }
+    if (advanceTick){ clearInterval(advanceTick); advanceTick = null; }
+    var nb = document.getElementById('quizNextBtn');
+    if (nb && nb.parentNode) nb.parentNode.removeChild(nb);
+  }
+  function scheduleNext(statusEl, sec, ok){
+    cancelAdvance();
+    var left = sec;
+    var label = ok ? 'To\u2018g\u2018ri!' : 'Xato.';
+    function setText(){ statusEl.textContent = label + ' Keyingisi ' + left + ' soniyadan keyin...'; }
+    setText();
+    var btn = document.createElement('button');
+    btn.id = 'quizNextBtn'; btn.type = 'button'; btn.className = 'btn-next';
+    btn.textContent = 'Keyingi savol \u279c';
+    statusEl.parentNode.insertBefore(btn, statusEl.nextSibling);
+    function go(){
+      cancelAdvance();
       quizState.idx++;
-      if (quizState.idx >= quizState.questions.length){
-        finishQuiz();
-      } else {
-        renderQuestion();
-      }
-    }, 900);
+      if (quizState.idx >= quizState.questions.length) finishQuiz(); else renderQuestion();
+    }
+    btn.onclick = go;
+    advanceTick = setInterval(function(){ left--; if (left > 0) setText(); }, 1000);
+    advanceTimer = setTimeout(go, sec * 1000);
   }
 
   function finishQuiz(){
